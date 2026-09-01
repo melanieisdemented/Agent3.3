@@ -27,19 +27,9 @@ jobs:
           New-Item -ItemType Directory -Force (Join-Path $src 'CORE')|Out-Null
           Copy-Item -Force "$env:GITHUB_WORKSPACE\ci_r4_src\CORE\install_windows.ps1" (Join-Path $src 'CORE')
           foreach($d in @('CONFIG','APPS','POLICY','COMPONENTS','TOOLS','ADDONS','UPDATES','EDUALC')){New-Item -ItemType Directory -Force (Join-Path $src $d)|Out-Null;'fixture'|Set-Content -Encoding ASCII (Join-Path $src "$d\fixture.txt")}
-          @'
-          param([string]$Root,[switch]$Once)
-          New-Item -ItemType Directory -Force (Join-Path $Root 'STATE\ci-captain')|Out-Null
-          Write-Host 'PLUMB_CAPTAIN_PASS'
-          '@|Set-Content -Encoding UTF8 (Join-Path $src 'CORE\edualc_captain_windows.ps1')
-          @'
-          param([string]$Root)
-          New-Item -ItemType Directory -Force (Join-Path $Root 'STATE\edualc')|Out-Null
-          '{"owned_process":true,"reused_existing":false,"pid":1,"port":8090}'|Set-Content -Encoding UTF8 (Join-Path $Root 'STATE\edualc\runtime.json')
-          Write-Host 'PLUMB_STARTER_PASS'
-          '@|Set-Content -Encoding UTF8 (Join-Path $src 'CORE\start_local_edualc_windows.ps1')
-          @'param([string]$Root)
-          '@|Set-Content -Encoding UTF8 (Join-Path $src 'CORE\stop_local_edualc_windows.ps1')
+          @('param([string]$Root,[switch]$Once)','New-Item -ItemType Directory -Force (Join-Path $Root ''STATE\ci-captain'')|Out-Null','Write-Host ''PLUMB_CAPTAIN_PASS''') | Set-Content -Encoding UTF8 (Join-Path $src 'CORE\edualc_captain_windows.ps1')
+          @('param([string]$Root)','New-Item -ItemType Directory -Force (Join-Path $Root ''STATE\edualc'')|Out-Null','''{"owned_process":true,"reused_existing":false,"pid":1,"port":8090}''|Set-Content -Encoding UTF8 (Join-Path $Root ''STATE\edualc\runtime.json'')','Write-Host ''PLUMB_STARTER_PASS''') | Set-Content -Encoding UTF8 (Join-Path $src 'CORE\start_local_edualc_windows.ps1')
+          'param([string]$Root)' | Set-Content -Encoding UTF8 (Join-Path $src 'CORE\stop_local_edualc_windows.ps1')
           if(Test-Path 'D:\TRINITY\universal'){Remove-Item -Recurse -Force 'D:\TRINITY\universal'}
           & cmd.exe /c (Join-Path $src 'INSTALL_TRINITY.cmd');if($LASTEXITCODE -ne 0){throw "install exit $LASTEXITCODE"}
           $dest='D:\TRINITY\universal';$j=Get-Content -Raw (Join-Path $dest 'STATE\install\current.json')|ConvertFrom-Json
