@@ -1,5 +1,11 @@
 $ErrorActionPreference='Stop'
 $Source=Split-Path -Parent $PSScriptRoot
+function Get-Sha256([string]$Path){
+  $sha=[System.Security.Cryptography.SHA256]::Create()
+  $stream=[System.IO.File]::OpenRead($Path)
+  try{$hash=$sha.ComputeHash($stream)}finally{$stream.Dispose();$sha.Dispose()}
+  return ([System.BitConverter]::ToString($hash)).Replace('-','').ToLowerInvariant()
+}
 function Can-Write([string]$Base){
   try{$d=Join-Path $Base 'TRINITY\universal';New-Item -ItemType Directory -Force $d|Out-Null;$t=Join-Path $d '.write_test';'x'|Set-Content $t;Remove-Item $t -Force;return $d}catch{return $null}
 }
@@ -18,7 +24,7 @@ New-Item -ItemType Directory -Force $BackupRoot|Out-Null
 $Replaced=@()
 foreach($d in @('CORE','CONFIG','APPS','POLICY','COMPONENTS','TOOLS','ADDONS','UPDATES','EDUALC')){
   if($d -eq 'EDUALC' -and (Test-Path (Join-Path $Dest 'EDUALC\MODELS\LOW\Qwen3.5-0.8B-Q4_0.gguf'))){
-    try{$oldHash=(Get-FileHash -Algorithm SHA256 (Join-Path $Dest 'EDUALC\MODELS\LOW\Qwen3.5-0.8B-Q4_0.gguf')).Hash;$newHash=(Get-FileHash -Algorithm SHA256 (Join-Path $Source 'EDUALC\MODELS\LOW\Qwen3.5-0.8B-Q4_0.gguf')).Hash;if($oldHash -eq $newHash){continue}}catch{}
+    try{$oldHash=Get-Sha256 (Join-Path $Dest 'EDUALC\MODELS\LOW\Qwen3.5-0.8B-Q4_0.gguf');$newHash=Get-Sha256 (Join-Path $Source 'EDUALC\MODELS\LOW\Qwen3.5-0.8B-Q4_0.gguf');if($oldHash -eq $newHash){continue}}catch{}
   }
   $src=Join-Path $Source $d;$dst=Join-Path $Dest $d;$tmp="$dst.new"
   if(Test-Path $tmp){Remove-Item -Recurse -Force $tmp}
