@@ -1,0 +1,23 @@
+name: TRINITY Windows full wrapper probe
+on:
+  push:
+    branches: [trinity-r4-ci-20260901]
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - name: Run full wrapper logic
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $b64=Get-Content -Raw "$env:GITHUB_WORKSPACE/.trinity-ci/fullwrapper_probe.b64"
+          $f=Join-Path $env:RUNNER_TEMP 'TRINITY_R4_OFFLINE_INSTALLER_PROBE.cmd'
+          [IO.File]::WriteAllBytes($f,[Convert]::FromBase64String($b64.Trim()))
+          $env:TRINITY_INSTALLER_NONINTERACTIVE='1'
+          & cmd.exe /d /c $f
+          if($LASTEXITCODE -ne 0){throw "wrapper failed $LASTEXITCODE"}
+          $marker=Join-Path $env:TEMP 'TRINITY_FULL_WRAPPER_INSTALL_PASS.txt'
+          if(!(Test-Path $marker)){throw 'embedded INSTALL_TRINITY.cmd was not invoked'}
+          Write-Host 'WINDOWS_FULL_WRAPPER_PASS'
