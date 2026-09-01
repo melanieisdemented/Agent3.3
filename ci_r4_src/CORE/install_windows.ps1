@@ -46,23 +46,18 @@ $captain=Join-Path $Dest 'CORE\edualc_captain_windows.ps1'
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $captain -Root $Dest -Once | Out-Host
 $localStarter=Join-Path $Dest 'CORE\start_local_edualc_windows.ps1'
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $localStarter -Root $Dest | Out-Host
-$taskName="TRINITY EDUALC Captain $env:USERNAME"
-$taskCommand='powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+$captain+'" -Root "'+$Dest+'"'
-$taskOk=$false
-try{& schtasks.exe /Create /F /SC ONLOGON /TN $taskName /TR $taskCommand | Out-Null;if($LASTEXITCODE -eq 0){$taskOk=$true}}catch{}
-if(!$taskOk){
-  $startup=[Environment]::GetFolderPath('Startup');$cmd=Join-Path $startup 'TRINITY_EDUALC_CAPTAIN.cmd'
-  ('@echo off' + "`r`n" + 'start "" /min powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+$captain+'" -Root "'+$Dest+'"') | Set-Content -Encoding ASCII $cmd
-  Start-Process powershell.exe -WindowStyle Hidden -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',$captain,'-Root',$Dest)
-}
-$localTaskName="TRINITY Local EDUALC $env:USERNAME"
-$localTaskCommand='powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+$localStarter+'" -Root "'+$Dest+'"'
-$localTaskOk=$false
-try{& schtasks.exe /Create /F /SC ONLOGON /TN $localTaskName /TR $localTaskCommand | Out-Null;if($LASTEXITCODE -eq 0){$localTaskOk=$true}}catch{}
-if(!$localTaskOk){
-  $startup=[Environment]::GetFolderPath('Startup');$localCmd=Join-Path $startup 'TRINITY_LOCAL_EDUALC.cmd'
-  ('@echo off' + "`r`n" + 'start "" /min powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+$localStarter+'" -Root "'+$Dest+'"') | Set-Content -Encoding ASCII $localCmd
-}
+$startup=[Environment]::GetFolderPath('Startup')
+if([string]::IsNullOrWhiteSpace($startup)){$startup=Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Startup'}
+New-Item -ItemType Directory -Force $startup|Out-Null
+$captainStartup=Join-Path $startup 'TRINITY_EDUALC_CAPTAIN.cmd'
+$localStartup=Join-Path $startup 'TRINITY_LOCAL_EDUALC.cmd'
+('@echo off' + "`r`n" + 'start "" /min powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+$captain+'" -Root "'+$Dest+'"') | Set-Content -Encoding ASCII $captainStartup
+('@echo off' + "`r`n" + 'start "" /min powershell.exe -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+$localStarter+'" -Root "'+$Dest+'"') | Set-Content -Encoding ASCII $localStartup
+try{
+  $captainArgs='-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File "'+$captain+'" -Root "'+$Dest+'"'
+  Start-Process powershell.exe -WindowStyle Hidden -ArgumentList $captainArgs|Out-Null
+}catch{}
+$autostartMode='startup_folder'
 # Visible desktop launcher for field use.
 $desktop=[Environment]::GetFolderPath('Desktop')
 if([string]::IsNullOrWhiteSpace($desktop)){$desktop=Join-Path $env:USERPROFILE 'Desktop'}
@@ -76,7 +71,7 @@ $sc.Description='Start TRINITY recovery, EDUALC captain, state and capability di
 $sc.IconLocation="$env:SystemRoot\System32\shell32.dll,25"
 $sc.Save()
 $installDir=Join-Path $Dest 'STATE\install';New-Item -ItemType Directory -Force $installDir|Out-Null
-@{schema='trinity.install.v1';installed_at=(Get-Date).ToUniversalTime().ToString('o');source=$Source;destination=$Dest;captain_scheduled=$taskOk;desktop_launcher=$link;backup_root=$BackupRoot;replaced_package_directories=$Replaced;state_preserved=$true}|ConvertTo-Json -Depth 5|Set-Content -Encoding UTF8 (Join-Path $installDir 'current.json')
+@{schema='trinity.install.v1';installed_at=(Get-Date).ToUniversalTime().ToString('o');source=$Source;destination=$Dest;captain_scheduled=$false;captain_autostart=$autostartMode;local_edualc_autostart=$autostartMode;desktop_launcher=$link;backup_root=$BackupRoot;replaced_package_directories=$Replaced;state_preserved=$true}|ConvertTo-Json -Depth 5|Set-Content -Encoding UTF8 (Join-Path $installDir 'current.json')
 Write-Host "TRINITY CANDIDATE INSTALLED/STAGED AT: $Dest"
 Write-Host "EDUALC captain state: $Dest\STATE"
 Write-Host "Desktop launcher: $link"
