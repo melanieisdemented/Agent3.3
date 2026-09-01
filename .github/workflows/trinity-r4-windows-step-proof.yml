@@ -1,0 +1,120 @@
+name: TRINITY R4 Windows granular native proof
+
+on:
+  push:
+    branches: [trinity-r4-ci-20260901]
+    paths:
+      - '.github/workflows/trinity-r4-windows-step-proof.yml'
+      - 'ci_r4_src/**'
+  workflow_dispatch:
+
+jobs:
+  windows-granular:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare exact R4 source and verified payload
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $src=Join-Path $env:RUNNER_TEMP 'r4src'
+          New-Item -ItemType Directory -Force $src|Out-Null
+          Copy-Item -Recurse -Force "$env:GITHUB_WORKSPACE\ci_r4_src\*" $src
+          foreach($d in @('CONFIG','APPS','POLICY','COMPONENTS','TOOLS','ADDONS','UPDATES')) {
+            $p=Join-Path $src $d; New-Item -ItemType Directory -Force $p|Out-Null
+            'fixture'|Set-Content -Encoding ASCII (Join-Path $p 'fixture.txt')
+          }
+          @'
+          param([string]$Root,[switch]$Once)
+          New-Item -ItemType Directory -Force (Join-Path $Root 'STATE\ci-captain')|Out-Null
+          '{"schema":"ci.captain","status":"LIVE"}'|Set-Content -Encoding UTF8 (Join-Path $Root 'STATE\ci-captain\current.json')
+          Write-Host 'CI_CAPTAIN_PASS'
+          '@ | Set-Content -Encoding UTF8 (Join-Path $src 'CORE\edualc_captain_windows.ps1')
+          $modelDir=Join-Path $src 'EDUALC\MODELS\LOW'
+          $runtimeDir=Join-Path $src 'EDUALC\RUNTIMES\LLAMA\WINDOWS_X64_CPU'
+          New-Item -ItemType Directory -Force $modelDir,$runtimeDir|Out-Null
+          $model=Join-Path $modelDir 'Qwen3.5-0.8B-Q4_0.gguf'
+          & curl.exe -fL --retry 4 --retry-delay 3 -o $model 'https://huggingface.co/ggml-org/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_0.gguf?download=true'
+          if($LASTEXITCODE -ne 0){throw 'model download failed'}
+          $sha=[System.Security.Cryptography.SHA256]::Create();$s=[IO.File]::OpenRead($model);try{$h=$sha.ComputeHash($s)}finally{$s.Dispose();$sha.Dispose()};$mh=([BitConverter]::ToString($h)).Replace('-','').ToLowerInvariant()
+          if($mh -ne '57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf'){throw "model hash mismatch $mh"}
+          $zip=Join-Path $env:RUNNER_TEMP 'llama-win.zip'
+          & curl.exe -fL --retry 4 --retry-delay 3 -o $zip 'https://github.com/ggml-org/llama.cpp/releases/download/b10621/llama-b10621-bin-win-cpu-x64.zip'
+          if($LASTEXITCODE -ne 0){throw 'runtime download failed'}
+          $sha=[System.Security.Cryptography.SHA256]::Create();$s=[IO.File]::OpenRead($zip);try{$h=$sha.ComputeHash($s)}finally{$s.Dispose();$sha.Dispose()};$zh=([BitConverter]::ToString($h)).Replace('-','').ToLowerInvariant()
+          if($zh -ne '0e8b65e650e369f70f8307d890508886f171ef4fb00facccddd4a1b7ffdaca51'){throw "runtime hash mismatch $zh"}
+          Expand-Archive -Force $zip $runtimeDir
+          "R4SRC=$src" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "PAYLOAD_PREP_PASS model=$mh runtime=$zh"
+
+      - name: First install to D drive
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          if(Test-Path 'D:\TRINITY\universal'){Remove-Item -Recurse -Force 'D:\TRINITY\universal'}
+          & cmd.exe /c (Join-Path $env:R4SRC 'INSTALL_TRINITY.cmd')
+          if($LASTEXITCODE -ne 0){throw "first install failed $LASTEXITCODE"}
+          $dest='D:\TRINITY\universal'
+          if(!(Test-Path (Join-Path $dest 'STATE\install\current.json'))){throw 'R4 did not install to D drive'}
+          if(!(Test-Path (Join-Path $dest 'STATE\edualc\runtime.json'))){throw 'runtime.json missing after install'}
+          $r=Get-Content -Raw (Join-Path $dest 'STATE\edualc\runtime.json')|ConvertFrom-Json
+          Write-Host "FIRST_INSTALL_PASS port=$($r.port) pid=$($r.pid) owned=$($r.owned_process) reused=$($r.reused_existing)"
+          "TRINITY_DEST=$dest" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "PID1=$($r.pid)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: First real inference
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          python (Join-Path $env:TRINITY_DEST 'CORE\verify_local_edualc.py') --root $env:TRINITY_DEST
+          if($LASTEXITCODE -ne 0){throw "first inference failed $LASTEXITCODE"}
+          Write-Host 'FIRST_INFERENCE_PASS'
+
+      - name: START TRINITY must reuse owned process
+        timeout-minutes: 4
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $before=Get-Content -Raw (Join-Path $env:TRINITY_DEST 'STATE\install\current.json')|ConvertFrom-Json
+          & cmd.exe /c (Join-Path $env:TRINITY_DEST 'START_TRINITY.cmd')
+          if($LASTEXITCODE -ne 0){throw "START TRINITY failed $LASTEXITCODE"}
+          $after=Get-Content -Raw (Join-Path $env:TRINITY_DEST 'STATE\install\current.json')|ConvertFrom-Json
+          if($after.installed_at -ne $before.installed_at){throw 'START TRINITY wrongly reran installer'}
+          $r=Get-Content -Raw (Join-Path $env:TRINITY_DEST 'STATE\edualc\runtime.json')|ConvertFrom-Json
+          if(!$r.owned_process -or $r.reused_existing -or [string]$r.pid -ne [string]$env:PID1){throw "ownership changed pid=$($r.pid)"}
+          Write-Host "START_REUSE_PASS pid=$($r.pid)"
+
+      - name: Reinstall and preserve state
+        timeout-minutes: 6
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          'PERSIST_ME'|Set-Content -Encoding ASCII (Join-Path $env:TRINITY_DEST 'STATE\ci_marker.txt')
+          Start-Sleep -Seconds 2
+          & cmd.exe /c (Join-Path $env:R4SRC 'INSTALL_TRINITY.cmd')
+          if($LASTEXITCODE -ne 0){throw "second install failed $LASTEXITCODE"}
+          if((Get-Content -Raw (Join-Path $env:TRINITY_DEST 'STATE\ci_marker.txt')).Trim() -ne 'PERSIST_ME'){throw 'STATE marker lost'}
+          $r=Get-Content -Raw (Join-Path $env:TRINITY_DEST 'STATE\edualc\runtime.json')|ConvertFrom-Json
+          if(!$r.owned_process -or $r.reused_existing){throw 'ownership lost after reinstall'}
+          if([string]$r.pid -eq [string]$env:PID1){throw 'owned EDUALC did not restart'}
+          "PID2=$($r.pid)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "REINSTALL_PASS pid1=$env:PID1 pid2=$($r.pid)"
+
+      - name: Second real inference and final checks
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          python (Join-Path $env:TRINITY_DEST 'CORE\verify_local_edualc.py') --root $env:TRINITY_DEST
+          if($LASTEXITCODE -ne 0){throw "second inference failed $LASTEXITCODE"}
+          $j=Get-Content -Raw (Join-Path $env:TRINITY_DEST 'STATE\install\current.json')|ConvertFrom-Json
+          if(!(Test-Path $j.desktop_launcher)){throw 'desktop launcher missing'}
+          foreach($d in @('CORE','CONFIG','APPS','POLICY','COMPONENTS','TOOLS','ADDONS','UPDATES')){if(!(Test-Path (Join-Path $j.backup_root $d))){throw "rollback backup missing $d"}}
+          if($j.replaced_package_directories -contains 'EDUALC'){throw 'unchanged EDUALC payload unnecessarily replaced'}
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $env:TRINITY_DEST 'CORE\stop_local_edualc_windows.ps1') -Root $env:TRINITY_DEST
+          Write-Host "WINDOWS_R4_GRANULAR_PASS pid1=$env:PID1 pid2=$env:PID2 desktop=$($j.desktop_launcher)"
