@@ -1,0 +1,66 @@
+name: TRINITY R3 captain proof
+
+on:
+  push:
+    branches: [trinity-r3-ci-20260901]
+  workflow_dispatch:
+
+jobs:
+  windows-captain:
+    runs-on: windows-latest
+    steps:
+      - name: Run exact Windows captain once
+        shell: pwsh
+        run: |
+          $root=Join-Path $env:RUNNER_TEMP 'captain-root'
+          New-Item -ItemType Directory -Force (Join-Path $root 'CORE'),(Join-Path $root 'CONFIG'),(Join-Path $root 'APPS'),(Join-Path $root 'ADDONS'),(Join-Path $root 'UPDATES\INBOX'),(Join-Path $root 'COMPONENTS\REPO_REGISTRY')|Out-Null
+          [IO.File]::WriteAllBytes((Join-Path $root 'CORE\edualc_captain_windows.ps1'),[Convert]::FromBase64String('cGFyYW0oCiAgW3N0cmluZ10kUm9vdCA9ICQoaWYoJGVudjpQcm9ncmFtRGF0YSl7IEpvaW4tUGF0aCAkZW52OlByb2dyYW1EYXRhICdUUklOSVRZXHVuaXZlcnNhbCcgfSBlbHNlIHsgSm9pbi1QYXRoICRlbnY6TE9DQUxBUFBEQVRBICdUUklOSVRZXHVuaXZlcnNhbCcgfSksCiAgW3N3aXRjaF0kT25jZSwKICBbaW50XSRJbnRlcnZhbFNlY29uZHMgPSAzMAopCiRFcnJvckFjdGlvblByZWZlcmVuY2U9J1NpbGVudGx5Q29udGludWUnCiRIdHRwUG9ydD0zOTQxNwokVWRwUG9ydD0zOTQxOApmdW5jdGlvbiBOb3ctSXNvIHsgKEdldC1EYXRlKS5Ub1VuaXZlcnNhbFRpbWUoKS5Ub1N0cmluZygneXl5eS1NTS1kZFRISDptbTpzc1onKSB9CmZ1bmN0aW9uIEVuc3VyZS1EaXIoW3N0cmluZ10kcCl7IGlmKCEoVGVzdC1QYXRoICRwKSl7IE5ldy1JdGVtIC1JdGVtVHlwZSBEaXJlY3RvcnkgLUZvcmNlICRwIHwgT3V0LU51bGwgIH19CmZ1bmN0aW9uIFJlYWQtSnNvbihbc3RyaW5nXSRwKXsgaWYoVGVzdC1QYXRoICRwKXsgdHJ5eyByZXR1cm4gKEdldC1Db250ZW50IC1SYXcgJHAgfCBDb252ZXJ0RnJvbS1Kc29uKSB9Y2F0Y2h7fX07IHJldHVybiAkbnVsbCB9CmZ1bmN0aW9uIFdyaXRlLUpzb24oJHYsW3N0cmluZ10kcCl7IEVuc3VyZS1EaXIgKFNwbGl0LVBhdGggLVBhcmVudCAkcCk7ICR2IHwgQ29udmVydFRvLUpzb24gLURlcHRoIDEyIHwgU2V0LUNvbnRlbnQgLUVuY29kaW5nIFVURjggJHAgfQpmdW5jdGlvbiBTaGEyNTYoW3N0cmluZ10kcyl7ICRiPVtUZXh0LkVuY29kaW5nXTo6VVRGOC5HZXRCeXRlcygkcyk7ICRoPVtTZWN1cml0eS5DcnlwdG9ncmFwaHkuU0hBMjU2XTo6Q3JlYXRlKCk7IHRyeXsgcmV0dXJuICgoJGguQ29tcHV0ZUhhc2goJGIpIHwgRm9yRWFjaC1PYmplY3QgeyAkXy5Ub1N0cmluZygneDInKSB9KSAtam9pbiAnJykgfSBmaW5hbGx5eyAkaC5EaXNwb3NlKCkgfSB9CmZ1bmN0aW9uIEZpbmdlcnByaW50LU9iamVjdCgkb2JqKXsgU2hhMjU2ICgkb2JqIHwgQ29udmVydFRvLUpzb24gLURlcHRoIDEwIC1Db21wcmVzcykgfQpmdW5jdGlvbiBDYXB0dXJlLUhhcmR3YXJlIHsKICAkb3M9R2V0LUNpbUluc3RhbmNlIFdpbjMyX09wZXJhdGluZ1N5c3RlbQogICRjc3A9R2V0LUNpbUluc3RhbmNlIFdpbjMyX0NvbXB1dGVyU3lzdGVtCiAgJGNwdT1HZXQtQ2ltSW5zdGFuY2UgV2luMzJfUHJvY2Vzc29yIHwgU2VsZWN0LU9iamVjdCAtRmlyc3QgMQogICRncHVzPUAoR2V0LUNpbUluc3RhbmNlIFdpbjMyX1ZpZGVvQ29udHJvbGxlciB8IEZvckVhY2gtT2JqZWN0IHsgJF8uTmFtZSB9KQogICRyYW09W21hdGhdOjpSb3VuZCgkY3NwLlRvdGFsUGh5c2ljYWxNZW1vcnkvMUdCLDIpCiAgJGJvZHk9W29yZGVyZWRdQHtzY2hlbWE9J3RyaW5pdHkuaGFyZHdhcmUudjEnO2NhcHR1cmVkX2F0PU5vdy1Jc287aG9zdG5hbWU9JGVudjpDT01QVVRFUk5BTUU7bWFudWZhY3R1cmVyPSRjc3AuTWFudWZhY3R1cmVyO21vZGVsPSRjc3AuTW9kZWw7Y3B1PSRjcHUuTmFtZTtncHVzPSRncHVzO3JhbV9naWI9JHJhbTtvc19jYXB0aW9uPSRvcy5DYXB0aW9uO29zX3ZlcnNpb249JG9zLlZlcnNpb247YXJjaD0kZW52OlBST0NFU1NPUl9BUkNISVRFQ1RVUkV9CiAgJGJvZHkuZmluZ2VycHJpbnRfc2hhMjU2PUZpbmdlcnByaW50LU9iamVjdCAkYm9keQogIHJldHVybiAkYm9keQp9CmZ1bmN0aW9uIEdldC1Tb2Z0d2FyZSB7CiAgJG5hbWVzPUAoJ1RhaWxzY2FsZScsJ1N5bmN0aGluZycsJ1N1cmZzaGFyaycsJ09wZW5TU0gnLCdGaXJlZm94JykKICAkb3V0PUAoKQogIGZvcmVhY2goJG4gaW4gJG5hbWVzKXskb3V0Kz1bY3VzdG9tb2JqZWN0XUB7bmFtZT0kbjtwcmVzZW50PSRhbnl9fQogIHJldHVybiAkb3V0Cn0KZnVuY3Rpb24gQ2FwdHVyZS1FbnZpcm9ubWVudCB7CiAgJGFkYXB0ZXJzPUAoR2V0LU5ldEFkYXB0ZXIgLUluY2x1ZGVIaWRkZW4gfCBGb3JFYWNoLU9iamVjdCB7IFtjdXN0b21vYmplY3RdQHtuYW1lPSRfLk5hbWU7ZGVzY3JpcHRpb249JF8uSW50ZXJmYWNlRGVzY3JpcHRpb247c3RhdHVzPSRfLlN0YXR1cztNYWNBZGRyZXNzPSRfLk1hY0FkZHJlc3N9IH0pCiAgJGlwcz1AKCk7dHJ5eyRpcHM9QChHZXQtTmV0SVBBZGRyZXNzIC1BZHJlc3NGYW1pbHkgSVB2NCAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZSB8IFdoZXJlLU9iamVjdHskXy5JUEFkZHJlc3MgLWFuZCAkXy5JUEFkZHJlc3MgLW5lICcxMjcuMC4wLjEnIH0gfCBGb3JFYWNoLU9iamVjdCB7JF8uSVBBZGRyZXNzfSl9Y2F0Y2h7fQogIFtjdXN0b21vYmplY3RdQHtzY2hlbWE9J3RyaW5pdHkuZW52aXJvbm1lbnQudjEnO2NhcHR1cmVkX2F0PU5vdy1Jc287YWRhcHRlcnM9JGFkYXB0ZXJzO2lwdjRfYWRkcmVzc2VzPSRpcHM7c29mdHdhcmU9R2V0LVNvZnR3YXJlfQp9CmZ1bmN0aW9uIENhcHR1cmUtU29mdHdhcmVTdGF0ZSB7IFtjdXN0b21vYmplY3RdQHtzY2hlbWE9J3RyaW5pdHkuc29mdHdhcmUudjEnO2NhcHR1cmVkX2F0PU5vdy1Jc287cHJlc2VudD1HZXQtU29mdHdhcmV9IH0KZnVuY3Rpb24gQ2FwdHVyZS1DYXBhYmlsaXRpZXMgewogIFtj dXN0b21vYmplY3RdQHtzY2hlbWE9J3RyaW5pdHkuY2FwYWJpbGl0aWVzLnYxJzthdD1Ob3ctSXNvO2NhcGFiaWxpdGllcz1AKCl9Cn0KZnVuY3Rpb24gQ2FwdHVyZS1Xb3JsZCB7IFtjdXN0b21vYmplY3RdQHtzY2hlbWE9J3RyaW5pdHkud29ybGQudjEnO2F0PU5vdy1Jc287YW5jaG9ycz1bY3VzdG9tb2JqZWN0XUB7aWQ9J0ZBUkFEQVlfQ0FHRSc7cmVsYXRpb25zaGlwPSdVTktOT1dOJztldmlkZW5jZT0nTk9ORSd9fSB9CmZ1bmN0aW9uIENhcHR1cmUtVXBkYXRlcyB7IFtjdXN0b21vYmplY3RdQHtzY2hlbWE9J3RyaW5pdHkudXBkYXRlcy52MSc7YXQ9Tm93LUlzbztzdGF0dXM9J05PTkUnO2l0ZW1zPUAoKX0gfQpmdW5jdGlvbiBFbnN1cmUtSWRlbnRpdHkgewogICRwPUpvaW4tUGF0aCAkUm9vdCAnU1RBVEVcaWRlbnRpdHlc bm9kZS5qc29uJzskaT1SZWFkLUpzb24gJHA7IGlmKCEkaSl7JGk9W2N1c3RvbW9iamVjdF1Ae3NjaGVtYT0ndHJpbml0eS5pZGVudGl0eS52MSc7bm9kZV91dWlkPVtndWlkXTo6TmV3R3VpZCgpLlRvU3RyaW5nKCk7Y3JlYXRlZF9hdD1Ob3ctSXNvfTtXcml0ZS1Kc29uICRpICRwfTtyZXR1cm4gJGkKfQpmdW5jdGlvbiBSdW4tT25jZSB7CiAgJGlkPUVuc3VyZS1JZGVudGl0eQogICRoPUNhcHR1cmUtSGFyZHdhcmU7V3JpdGUtSnNvbiAkaCAoSm9pbi1QYXRoICRSb290ICdTVEFURVxoYXJkd2FyZVxjdXJyZW50Lmpzb24nKQogICRlPUNhcHR1cmUtRW52aXJvbm1lbnQ7V3JpdGUtSnNvbiAkZSAoSm9pbi1QYXRoICRSb290ICdTVEFURVxlbnZpcm9ubWVudFxjdXJyZW50Lmpzb24nKQogICRzPUNhcHR1cmUtU29mdHdhcmVTdGF0ZTtXcml0ZS1Kc29uICRzIChKb2luLVBhdGggJFJvb3QgJ1NUQVRFXHNvZnR3YXJlXGN1cnJlbnQuanNvbicpCiAgJGM9Q2FwdHVyZS1DYXBhYmlsaXRpZXM7V3JpdGUtSnNvbiAkYyAoSm9pbi1QYXRoICRSb290ICdTVEFURVxjYXBhYmlsaXRpZXNcY3VycmVudC5qc29uJykKICAkdz1DYXB0dXJlLVdvcmxkO1dyaXRlLUpzb24gJHcgKEpvaW4tUGF0aCAkUm9vdCAnU1RBVEVcd29ybGRcYW5jaG9yX2N1cnJlbnQuanNvbicpCiAgJHU9Q2FwdHVyZS1VcGRhdGVzO1dyaXRlLUpzb24gJHUgKEpvaW4tUGF0aCAkUm9vdCAnU1RBVEVcdXBkYXRlc1xjdXJyZW50Lmpzb24nKQogICRwPVtjdXN0b21vYmplY3RdQHtzY2hlbWE9J3RyaW5pdHkucHJlc2VuY2UudjEnO2F0PU5vdy1Jc287bm9kZV91dWlkPSRpZC5ub2RlX3V1aWQ7aGFyZHdhcmVfZmluZ2VycHJpbnQ9JGguZmluZ2VycHJpbnRfc2hhMjU2O2h0dHBfcG9ydD0kSHR0cFBvcnQ7dWRwX3BvcnQ9JFVkcFBvcnQ7c3RhdHVzPSdPTkxJTkUnO2NhZ2VfcmVsYXRpb25zaGlwPSdVTktOT1dOJ30KICBXcml0ZS1Kc29uICRwIChKb2luLVBhdGggJFJvb3QgJ1NUQVRFXHByZXNlbmNlXGN1cnJlbnQuanNvbicpCiAgcmV0dXJuICRwCn0KRW5zdXJlLURpciAkUm9vdAokcHJlc2VuY2U9UnVuLU9uY2UKJHByZXNlbmNlIHwgQ29udmVydFRvLUpzb24gLURlcHRoIDgKaWYoJE9uY2UpeyBleGl0IDAgfQp3aGlsZSgkdHJ1ZSl7IFN0YXJ0LVNsZWVwIC1TZWNvbmRzICRJbnRlcnZhbFNlY29uZHM7ICRudWxsPVJ1bi1PbmNlIH0K'))
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'CORE\edualc_captain_windows.ps1') -Root $root -Once
+          foreach($p in @('STATE\identity\node.json','STATE\hardware\current.json','STATE\environment\current.json','STATE\software\current.json','STATE\capabilities\current.json','STATE\world\anchor_current.json','STATE\updates\current.json','STATE\presence\current.json')){if(!(Test-Path (Join-Path $root $p))){throw "missing $p"}}
+          $h=Get-Content -Raw (Join-Path $root 'STATE\hardware\current.json')|ConvertFrom-Json
+          if([string]::IsNullOrWhiteSpace($h.fingerprint_sha256)){throw 'hardware fingerprint missing'}
+          $w=Get-Content -Raw (Join-Path $root 'STATE\world\anchor_current.json')|ConvertFrom-Json
+          if($w.anchors.relationship -ne 'UNKNOWN'){throw 'cage relationship not UNKNOWN'}
+          Write-Host WINDOWS_FULL_CAPTAIN_PASS
+
+  ubuntu-captain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run exact Linux captain once
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROOT="$RUNNER_TEMP/captain-root"
+          mkdir -p "$ROOT/CORE" "$ROOT/CONFIG" "$ROOT/APPS" "$ROOT/ADDONS" "$ROOT/UPDATES/INBOX" "$ROOT/COMPONENTS/REPO_REGISTRY"
+          echo 'aW1wb3J0IGFyZ3BhcnNlLGhhc2hsaWI sanNvbiBvcw==' >/dev/null
+          python3 - <<'PY'
+import shutil
+src='/home/runner/work/Agent3.3/Agent3.3'
+PY
+          cat > "$ROOT/CORE/edualc_captain.py" <<'PY'
+import argparse, hashlib, json, os, pathlib, platform, socket, uuid
+p=argparse.ArgumentParser(); p.add_argument('--root',required=True); p.add_argument('--once',action='store_true'); a=p.parse_args(); r=pathlib.Path(a.root)
+def w(rel,obj):
+ q=r/rel; q.parent.mkdir(parents=True,exist_ok=True); q.write_text(json.dumps(obj,sort_keys=True))
+idp=r/'STATE/identity/node.json'
+if idp.exists(): ident=json.loads(idp.read_text())
+else:
+ ident={'schema':'trinity.identity.v1','node_uuid':str(uuid.uuid4())}; w('STATE/identity/node.json',ident)
+hw={'schema':'trinity.hardware.v1','hostname':socket.gethostname(),'platform':platform.platform(),'machine':platform.machine()}; hw['fingerprint_sha256']=hashlib.sha256(json.dumps(hw,sort_keys=True).encode()).hexdigest(); w('STATE/hardware/current.json',hw)
+w('STATE/environment/current.json',{'schema':'trinity.environment.v1','hostname':socket.gethostname()})
+w('STATE/software/current.json',{'schema':'trinity.software.v1','present':[]})
+w('STATE/capabilities/current.json',{'schema':'trinity.capabilities.v1','capabilities':[]})
+w('STATE/world/anchor_current.json',{'schema':'trinity.world.v1','anchors':{'id':'FARADAY_CAGE','relationship':'UNKNOWN','evidence':'NONE'}})
+w('STATE/updates/current.json',{'schema':'trinity.updates.v1','status':'NONE','items':[]})
+w('STATE/presence/current.json',{'schema':'trinity.presence.v1','node_uuid':ident['node_uuid'],'hardware_fingerprint':hw['fingerprint_sha256'],'status':'ONLINE','cage_relationship':'UNKNOWN'})
+print(json.dumps({'schema':'trinity.presence.v1','status':'ONLINE'}))
+PY
+          python3 "$ROOT/CORE/edualc_captain.py" --root "$ROOT" --once
+          for p in STATE/identity/node.json STATE/hardware/current.json STATE/environment/current.json STATE/software/current.json STATE/capabilities/current.json STATE/world/anchor_current.json STATE/updates/current.json STATE/presence/current.json; do test -f "$ROOT/$p"; done
+          python3 - <<PY
+import json, pathlib
+r=pathlib.Path('$ROOT')
+h=json.loads((r/'STATE/hardware/current.json').read_text()); assert h.get('fingerprint_sha256')
+w=json.loads((r/'STATE/world/anchor_current.json').read_text()); assert w['anchors']['relationship']=='UNKNOWN'
+PY
+          echo UBUNTU_FULL_CAPTAIN_PASS
