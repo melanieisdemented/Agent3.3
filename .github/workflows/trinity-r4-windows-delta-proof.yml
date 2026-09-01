@@ -1,0 +1,98 @@
+name: TRINITY R4 Windows native delta proof
+
+on:
+  push:
+    branches: [trinity-r4-ci-20260901]
+    paths:
+      - 'ci_r4_src/**'
+      - '.github/workflows/trinity-r4-windows-delta-proof.yml'
+  workflow_dispatch:
+
+jobs:
+  windows-r4:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build exact R4 Windows executable source and verified payload
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          if(-not (Test-Path 'D:\')) {
+            $subst=Join-Path $env:RUNNER_TEMP 'trinity-d-drive'
+            New-Item -ItemType Directory -Force $subst|Out-Null
+            & subst.exe D: $subst
+          }
+          if(-not (Test-Path 'D:\')) { throw 'Could not provide D: test drive' }
+          $src=Join-Path $env:RUNNER_TEMP 'r4src'
+          New-Item -ItemType Directory -Force $src|Out-Null
+          Copy-Item -Recurse -Force "$env:GITHUB_WORKSPACE\ci_r4_src\*" $src
+          foreach($d in @('CONFIG','APPS','POLICY','COMPONENTS','TOOLS','ADDONS','UPDATES')) {
+            $p=Join-Path $src $d; New-Item -ItemType Directory -Force $p|Out-Null
+            'fixture'|Set-Content -Encoding ASCII (Join-Path $p 'fixture.txt')
+          }
+          @'
+          param([string]$Root,[switch]$Once)
+          New-Item -ItemType Directory -Force (Join-Path $Root 'STATE\ci-captain')|Out-Null
+          '{"schema":"ci.captain","status":"LIVE"}'|Set-Content -Encoding UTF8 (Join-Path $Root 'STATE\ci-captain\current.json')
+          Write-Host 'CI_CAPTAIN_PASS'
+          '@ | Set-Content -Encoding UTF8 (Join-Path $src 'CORE\edualc_captain_windows.ps1')
+
+          $modelDir=Join-Path $src 'EDUALC\MODELS\LOW'
+          $runtimeDir=Join-Path $src 'EDUALC\RUNTIMES\LLAMA\WINDOWS_X64_CPU'
+          New-Item -ItemType Directory -Force $modelDir,$runtimeDir|Out-Null
+          $model=Join-Path $modelDir 'Qwen3.5-0.8B-Q4_0.gguf'
+          & curl.exe -fL --retry 4 --retry-delay 3 -o $model 'https://huggingface.co/ggml-org/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_0.gguf?download=true'
+          if($LASTEXITCODE -ne 0){throw 'model download failed'}
+          if((Get-FileHash -Algorithm SHA256 $model).Hash.ToLowerInvariant() -ne '57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf'){throw 'model hash mismatch'}
+          $zip=Join-Path $env:RUNNER_TEMP 'llama-win.zip'
+          & curl.exe -fL --retry 4 --retry-delay 3 -o $zip 'https://github.com/ggml-org/llama.cpp/releases/download/b10621/llama-b10621-bin-win-cpu-x64.zip'
+          if($LASTEXITCODE -ne 0){throw 'runtime download failed'}
+          if((Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant() -ne '0e8b65e650e369f70f8307d890508886f171ef4fb00facccddd4a1b7ffdaca51'){throw 'runtime archive hash mismatch'}
+          Expand-Archive -Force $zip $runtimeDir
+
+      - name: Install start infer reinstall infer and prove D drive behavior
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $src=Join-Path $env:RUNNER_TEMP 'r4src'
+          if(Test-Path 'D:\TRINITY\universal'){Remove-Item -Recurse -Force 'D:\TRINITY\universal'}
+          & cmd.exe /c (Join-Path $src 'INSTALL_TRINITY.cmd')
+          if($LASTEXITCODE -ne 0){throw 'first install failed'}
+          $dest='D:\TRINITY\universal'
+          if(!(Test-Path (Join-Path $dest 'STATE\install\current.json'))){throw 'R4 did not install to D drive'}
+          $firstInstall=Get-Content -Raw (Join-Path $dest 'STATE\install\current.json')|ConvertFrom-Json
+          $firstRuntime=Get-Content -Raw (Join-Path $dest 'STATE\edualc\runtime.json')|ConvertFrom-Json
+          if(!$firstRuntime.owned_process -or $firstRuntime.reused_existing){throw 'first install did not own local EDUALC'}
+          $pid1=[int]$firstRuntime.pid
+          python (Join-Path $dest 'CORE\verify_local_edualc.py') --root $dest
+          if($LASTEXITCODE -ne 0){throw 'first inference failed'}
+
+          & cmd.exe /c (Join-Path $dest 'START_TRINITY.cmd')
+          if($LASTEXITCODE -ne 0){throw 'START TRINITY failed'}
+          $afterStartInstall=Get-Content -Raw (Join-Path $dest 'STATE\install\current.json')|ConvertFrom-Json
+          if($afterStartInstall.installed_at -ne $firstInstall.installed_at){throw 'START TRINITY wrongly re-ran installer on D drive'}
+          $afterStartRuntime=Get-Content -Raw (Join-Path $dest 'STATE\edualc\runtime.json')|ConvertFrom-Json
+          if(!$afterStartRuntime.owned_process -or $afterStartRuntime.reused_existing -or [int]$afterStartRuntime.pid -ne $pid1){throw 'START TRINITY lost ownership or restarted healthy owned EDUALC'}
+
+          'PERSIST_ME'|Set-Content -Encoding ASCII (Join-Path $dest 'STATE\ci_marker.txt')
+          Start-Sleep -Seconds 2
+          & cmd.exe /c (Join-Path $src 'INSTALL_TRINITY.cmd')
+          if($LASTEXITCODE -ne 0){throw 'second install failed'}
+          if((Get-Content -Raw (Join-Path $dest 'STATE\ci_marker.txt')).Trim() -ne 'PERSIST_ME'){throw 'STATE marker lost'}
+          python (Join-Path $dest 'CORE\verify_local_edualc.py') --root $dest
+          if($LASTEXITCODE -ne 0){throw 'second inference failed'}
+          $r2=Get-Content -Raw (Join-Path $dest 'STATE\edualc\runtime.json')|ConvertFrom-Json
+          if(!$r2.owned_process -or $r2.reused_existing){throw 'ownership lost after reinstall'}
+          if([int]$r2.pid -eq $pid1){throw 'owned local EDUALC was not restarted during package replacement'}
+          $j=Get-Content -Raw (Join-Path $dest 'STATE\install\current.json')|ConvertFrom-Json
+          if(!(Test-Path $j.desktop_launcher)){throw 'desktop START TRINITY shortcut missing'}
+          foreach($d in @('CORE','CONFIG','APPS','POLICY','COMPONENTS','TOOLS','ADDONS','UPDATES')){
+            if(!(Test-Path (Join-Path $j.backup_root $d))){throw "rollback backup missing $d"}
+          }
+          if('EDUALC' -contains $j.replaced_package_directories){throw 'unchanged EDUALC payload was unnecessarily replaced'}
+          $installedModel=Join-Path $dest 'EDUALC\MODELS\LOW\Qwen3.5-0.8B-Q4_0.gguf'
+          if((Get-FileHash -Algorithm SHA256 $installedModel).Hash.ToLowerInvariant() -ne '57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf'){throw 'installed model hash mismatch'}
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $dest 'CORE\stop_local_edualc_windows.ps1') -Root $dest
+          Write-Host "WINDOWS_R4_NATIVE_PASS dest=$dest pid1=$pid1 pid2=$($r2.pid) desktop=$($j.desktop_launcher)"
