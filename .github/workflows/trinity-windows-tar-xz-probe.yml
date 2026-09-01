@@ -1,0 +1,23 @@
+name: TRINITY Windows tar xz probe
+on:
+  push:
+    branches: [trinity-r4-ci-20260901]
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - name: Prove built-in tar can extract xz
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $b64='/Td6WFoAAATm1rRGBMCuAYBQIQEcAAAAAAAAACZ9ZWDgJ/8Apl0ANJuB3pXhcFXE18bkhxcPEGAEoUP9tFik4MUvC52OtZouxTALyupDw19lVIZjWxkPeKNn/c9dElfEdHvTObbJ5ADMGPfyeHHS3/IZvE9I1g0Y4AA/KQAO6QWdQfzlA+NtuZ3ccpnRokr1W4HSsz2aLoCoO7wdb6YBfP8rRh3PXSjJRKhAtlIPNcvi1ACYj/PFURzaRpN2hLfi9/ZTK0au4LKU2Sp5AAAAAExmwu1heGC2AAHKAYBQAAA0WKPPscRn+wIAAAAABFla'
+          $archive=Join-Path $env:RUNNER_TEMP 'probe.tar.xz'
+          [IO.File]::WriteAllBytes($archive,[Convert]::FromBase64String($b64))
+          $out=Join-Path $env:RUNNER_TEMP 'out'; New-Item -ItemType Directory -Force $out|Out-Null
+          & tar.exe -xf $archive -C $out
+          if($LASTEXITCODE -ne 0){throw "tar extraction failed $LASTEXITCODE"}
+          $v=(Get-Content -Raw (Join-Path $out 'in\probe.txt')).Trim()
+          if($v -ne 'TAR_ZSTD_WINDOWS_PASS'){throw "unexpected probe $v"}
+          Write-Host 'WINDOWS_BUILTIN_TAR_XZ_PASS'
