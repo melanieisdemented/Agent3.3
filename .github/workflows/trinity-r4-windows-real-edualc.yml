@@ -1,0 +1,36 @@
+name: TRINITY R4 Windows real offline EDUALC
+
+on:
+  push:
+    branches: [trinity-r3-ci-20260901]
+  workflow_dispatch:
+
+jobs:
+  windows-r4-llm:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Run exact R4 Windows local-LLM launcher with real payload
+        shell: pwsh
+        run: |
+          $root=Join-Path $env:RUNNER_TEMP 'trinity-r4-real'
+          $core=Join-Path $root 'CORE'
+          $pay=Join-Path $root 'COMPONENTS\EDUALC_OFFLINE_MINIMUM'
+          New-Item -ItemType Directory -Force $core,(Join-Path $pay 'MODELS\LOW'),(Join-Path $pay 'RUNTIMES\LLAMA\WINDOWS_X64_CPU')|Out-Null
+          [IO.File]::WriteAllBytes((Join-Path $core 'start_edualc_llm_windows.ps1'),[Convert]::FromBase64String('cGFyYW0oW3N0cmluZ10kUm9vdCA9ICQoaWYoJGVudjpQcm9ncmFtRGF0YSl7Sm9pbi1QYXRoICRlbnY6UHJvZ3JhbURhdGEgJ1RSSU5JVFlcdW5pdmVyc2FsJ31lbHNle0pvaW4tUGF0aCAkZW52OkxPQ0FMQVBQREFUQSAnVFJJTklUWVx1bml2ZXJzYWwnfSkpCiRFcnJvckFjdGlvblByZWZlcmVuY2U9J1N0b3AnCiRwYXk9Sm9pbi1QYXRoICRSb290ICdDT01QT05FTlRTXEVEVUFMQ19PRkZMSU5FX01JTklNVU0nCiRzdGF0ZT1Kb2luLVBhdGggJFJvb3QgJ1NUQVRFXGVkdWFsY19sbG0nO05ldy1JdGVtIC1JdGVtVHlwZSBEaXJlY3RvcnkgLUZvcmNlICRzdGF0ZXxPdXQtTnVsbAokbW9kZWw9Sm9pbi1QYXRoICRwYXkgJ01PREVMU1xMT1dcUXdlbjMuNS0wLjhCLVE0XzAuZ2d1ZicKaWYoIShUZXN0LVBhdGggJG1vZGVsKSl7QHtzY2hlbWE9J3RyaW5pdHkuZWR1YWxjX2xsbS52MSc7c3RhdHVzPSdQQVlMT0FEX01JU1NJTkcnfXxDb252ZXJ0VG8tSnNvbnxTZXQtQ29udGVudCAtRW5jb2RpbmcgVVRGOCAoSm9pbi1QYXRoICRzdGF0ZSAnY3VycmVudC5qc29uJyk7ZXhpdCAyMH0KIyBQcmVzZXJ2ZSBhIHJlYWwgZXhpc3RpbmcgY29tcGF0aWJsZSBsaXN0ZW5lciBvbiBoaXN0b3JpY2FsIEVEVUFMQyBwb3J0IDgwOTAuCnRyeXskbT1JbnZva2UtUmVzdE1ldGhvZCAtVXJpICdodHRwOi8vMTI3LjAuMC4xOjgwOTAvdjEvbW9kZWxzJyAtVGltZW91dFNlYyAxO2lmKCRtKXtAe3NjaGVtYT0ndHJpbml0eS5lZHVhbGNfbGxtLnYxJztzdGF0dXM9J0VYSVNUSU5HX0NPTVBBVElCTEVfTElTVEVORVJfUFJFU0VSVkVEJztwb3J0PTgwOTA7bW9kZWxfcGF5bG9hZD0kbW9kZWw7b2JzZXJ2ZWRfYXQ9KEdldC1EYXRlKS5Ub1N0cmluZygnbycpfXxDb252ZXJ0VG8tSnNvbnxTZXQtQ29udGVudCAtRW5jb2RpbmcgVVRGOCAoSm9pbi1QYXRoICRzdGF0ZSAnY3VycmVudC5qc29uJyk7ZXhpdCAwfX1jYXRjaHt9CiRleHBlY3RlZE1vZGVsU2hhPSc1N2QxOTk3NzkwZDE3NDRmYmE1YjQwYTczMTdkZjcxZWE1ZTJhY2VlMjhjNDdlNzhmMGNjZTM5YzA3MDNmOGNmJwokYWN0dWFsTW9kZWxTaGE9KEdldC1GaWxlSGFzaCAtQWxnb3JpdGhtIFNIQTI1NiAkbW9kZWwpLkhhc2guVG9Mb3dlckludmFyaWFudCgpCmlmKCRhY3R1YWxNb2RlbFNoYSAtbmUgJGV4cGVjdGVkTW9kZWxTaGEpe0B7c2NoZW1hPSd0cmluaXR5LmVkdWFsY19sbG0udjEnO3N0YXR1cz0nUEFZTE9BRF9IQVNIX01JU01BVENIJztleHBlY3RlZF9zaGEyNTY9JGV4cGVjdGVkTW9kZWxTaGE7YWN0dWFsX3NoYTI1Nj0kYWN0dWFsTW9kZWxTaGF9fENvbnZlcnRUby1Kc29ufFNldC1Db250ZW50IC1FbmNvZGluZyBVVEY4IChKb2luLVBhdGggJHN0YXRlICdjdXJyZW50Lmpzb24nKTtleGl0IDI1fQokYXJjaD0kZW52OlBST0NFU1NPUl9BUkNISVRFQ1RVUkUKJHJ1bnRpbWU9aWYoJGFyY2ggLW1hdGNoICdBUk02NCcpe0pvaW4tUGF0aCAkcGF5ICdSVU5USU1FU1xMTEFNQVxXSU5ET1dTX0FSTTY0X0NQVSd9ZWxzZXtKb2luLVBhdGggJHBheSAnUlVOVElNRVNcTExBTUFcV0lORE9XU19YNjRfQ1BVJ30KJHNlcnZlcj1HZXQtQ2hpbGRJdGVtICRydW50aW1lIC1SZWN1cnNlIC1GaWx0ZXIgbGxhbWEtc2VydmVyLmV4ZSAtRXJyb3JBY3Rpb24gU2lsZW50bHlDb250aW51ZXxTZWxlY3QtT2JqZWN0IC1GaXJzdCAxCmlmKCEkc2VydmVyKXtAe3NjaGVtYT0ndHJpbml0eS5lZHVhbGNfbGxtLnYxJztzdGF0dXM9J1JVTlRJTUVfTUlTU0lORyc7YXJjaD0kYXJjaH18Q29udmVydFRvLUpzb258U2V0LUNvbnRlbnQgLUVuY29kaW5nIFVURjggKEpvaW4tUGF0aCAkc3RhdGUgJ2N1cnJlbnQuanNvbicpO2V4aXQgMjJ9CiR1c2VkPVtTeXN0ZW0uTmV0Lk5ldHdvcmtJbmZvcm1hdGlvbi5JUEdsb2JhbFByb3BlcnRpZXNdOjpHZXRJUEdsb2JhbFByb3BlcnRpZXMoKS5HZXRBY3RpdmVUY3BMaXN0ZW5lcnMoKS5Qb3J0CiRwb3J0PTgwOTA7d2hpbGUoJHVzZWQgLWNvbnRhaW5zICRwb3J0IC1hbmQgJHBvcnQgLWxlIDgxMTApeyRwb3J0Kyt9O2lmKCRwb3J0IC1ndCA4MTEwKXtleGl0IDIzfQokcGlkRmlsZT1Kb2luLVBhdGggJHN0YXRlICdwaWQnCmlmKFRlc3QtUGF0aCAkcGlkRmlsZSl7JG9sZD0oR2V0LUNvbnRlbnQgLVJhdyAkcGlkRmlsZSkuVHJpbSgpO2lmKCRvbGQgLW1hdGNoICdeXGQrJCcpe3RyeXtHZXQtUHJvY2VzcyAtSWQgKFtpbnRdJG9sZCkgLUVycm9yQWN0aW9uIFN0b3B8T3V0LU51bGw7ZXhpdCAwfWNhdGNoe319fQokbG9nPUpvaW4tUGF0aCAkc3RhdGUgJ2xsYW1hLXNlcnZlci5sb2cnCiRhcmdzPUAoJy1tJywkbW9kZWwsJy0tYWxpYXMnLCdjYXB0YWluJywnLS1ob3N0JywnMTI3LjAuMC4xJywnLS1wb3J0Jyxbc3RyaW5nXSRwb3J0LCctLWN0eC1zaXplJywnNDA5NicsJy0tamluamEnLCctbmdsJywnMCcsJy0tcmVhc29uaW5nJywnb2ZmJykKJHByb2M9U3RhcnQtUHJvY2VzcyAtRmlsZVBhdGggJHNlcnZlci5GdWxsTmFtZSAtQXJndW1lbnRMaXN0ICRhcmdzIC1Xb3JraW5nRGlyZWN0b3J5ICRzZXJ2ZXIuRGlyZWN0b3J5LkZ1bGxOYW1lIC1SZWRpcmVjdFN0YW5kYXJkT3V0cHV0ICRsb2cgLVJlZGlyZWN0U3RhbmRhcmRFcnJvciAoSm9pbi1QYXRoICRzdGF0ZSAnbGxhbWEtc2VydmVyLmVyci5sb2cnKSAtV2luZG93U3R5bGUgSGlkZGVuIC1QYXNzVGhydQokcHJvYy5JZHxTZXQtQ29udGVudCAtRW5jb2RpbmcgQVNDSUkgJHBpZEZpbGUKJGhlYWx0aHk9JGZhbHNlCmZvcigkaT0wOyRpIC1sdCA2MDskaSsrKXtTdGFydC1TbGVlcCAtTWlsbGlzZWNvbmRzIDUwMDt0cnl7JGg9SW52b2tlLVJlc3RNZXRob2QgLVVyaSAiaHR0cDovLzEyNy4wLjAuMTokcG9ydC9oZWFsdGgiIC1UaW1lb3V0U2VjIDE7aWYoJGgpeyRoZWFsdGh5PSR0cnVlO2JyZWFrfX1jYXRjaHt9O2lmKCRwcm9jLkhhc0V4aXRlZCl7YnJlYWt9fQpAe3NjaGVtYT0ndHJpbml0eS5lZHVhbGNfbGxtLnYxJztzdGF0dXM9JChpZigkaGVhbHRoeSl7J09OTElORSd9ZWxzZXsnRkFJTEVEJ30pO3BvcnQ9JHBvcnQ7cGlkPSRwcm9jLklkO21vZGVsPSRtb2RlbDtzZXJ2ZXI9JHNlcnZlci5GdWxsTmFtZTtyZWFzb25pbmc9J29mZic7b2JzZXJ2ZWRfYXQ9KEdldC1EYXRlKS5Ub1N0cmluZygnbycpfXxDb252ZXJ0VG8tSnNvbiAtRGVwdGggNXxTZXQtQ29udGVudCAtRW5jb2RpbmcgVVRGOCAoSm9pbi1QYXRoICRzdGF0ZSAnY3VycmVudC5qc29uJykKaWYoISRoZWFsdGh5KXtleGl0IDI0fQo='))
+          $model=Join-Path $pay 'MODELS\LOW\Qwen3.5-0.8B-Q4_0.gguf'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://huggingface.co/ggml-org/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_0.gguf?download=true' -OutFile $model
+          $zip=Join-Path $env:RUNNER_TEMP 'llama-win.zip'
+          Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/ggml-org/llama.cpp/releases/download/b10621/llama-b10621-bin-win-cpu-x64.zip' -OutFile $zip
+          Expand-Archive -Force $zip (Join-Path $pay 'RUNTIMES\LLAMA\WINDOWS_X64_CPU')
+          $h=(Get-FileHash -Algorithm SHA256 $model).Hash.ToLowerInvariant()
+          if($h -ne '57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf'){throw "model hash mismatch $h"}
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $core 'start_edualc_llm_windows.ps1') -Root $root
+          if($LASTEXITCODE -ne 0){throw "launcher failed $LASTEXITCODE"}
+          $state=Get-Content -Raw (Join-Path $root 'STATE\edualc_llm\current.json')|ConvertFrom-Json
+          if($state.status -ne 'ONLINE'){throw "bad state $($state.status)"}
+          $body=@{model='captain';messages=@(@{role='system';content='Return exactly WINDOWS_R4_REAL_EDUALC_PASS and nothing else.'},@{role='user';content='Respond now.'});temperature=0;max_tokens=40}|ConvertTo-Json -Depth 5
+          $resp=Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$($state.port)/v1/chat/completions" -ContentType 'application/json' -Body $body -TimeoutSec 90
+          $text=[string]$resp.choices[0].message.content
+          if($text -notmatch 'WINDOWS_R4_REAL_EDUALC_PASS'){throw "bad inference: $text"}
+          Write-Host WINDOWS_R4_REAL_EDUALC_PASS
