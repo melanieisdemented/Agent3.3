@@ -1,0 +1,38 @@
+name: TRINITY EDUALC payload fetch
+
+on:
+  push:
+    branches: [trinity-r3-ci-20260901]
+  workflow_dispatch:
+
+jobs:
+  fetch-verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Fetch pinned offline EDUALC payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p payload/MODELS/LOW payload/RUNTIMES/LLAMA/WINDOWS_X64_CPU payload/RUNTIMES/LLAMA/LINUX_X64_CPU payload/RUNTIMES/LLAMA/LINUX_ARM64_CPU
+          curl -fL --retry 4 --retry-delay 3 -o payload/MODELS/LOW/Qwen3.5-0.8B-Q4_0.gguf 'https://huggingface.co/ggml-org/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_0.gguf?download=true'
+          echo '57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf  payload/MODELS/LOW/Qwen3.5-0.8B-Q4_0.gguf' | sha256sum -c -
+          curl -fL --retry 4 --retry-delay 3 -o /tmp/llama-win.zip 'https://github.com/ggml-org/llama.cpp/releases/download/b10621/llama-b10621-bin-win-cpu-x64.zip'
+          echo '0e8b65e650e369f70f8307d890508886f171ef4fb00facccddd4a1b7ffdaca51  /tmp/llama-win.zip' | sha256sum -c -
+          unzip -q /tmp/llama-win.zip -d payload/RUNTIMES/LLAMA/WINDOWS_X64_CPU
+          curl -fL --retry 4 --retry-delay 3 -o /tmp/llama-linux-x64.tar.gz 'https://github.com/ggml-org/llama.cpp/releases/download/b10621/llama-b10621-bin-ubuntu-x64.tar.gz'
+          echo '91d7b03ddae498a39f28fdb85d84d2b4a0fd3838d10b4f897e0ef8975bb9b583  /tmp/llama-linux-x64.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/llama-linux-x64.tar.gz -C payload/RUNTIMES/LLAMA/LINUX_X64_CPU
+          curl -fL --retry 4 --retry-delay 3 -o /tmp/llama-linux-arm64.tar.gz 'https://github.com/ggml-org/llama.cpp/releases/download/b10621/llama-b10621-bin-ubuntu-arm64.tar.gz'
+          echo '95940151be63492f70f659da420b268244cc83a6ee70e310d2600ccdb7ea4deb  /tmp/llama-linux-arm64.tar.gz' | sha256sum -c -
+          tar -xzf /tmp/llama-linux-arm64.tar.gz -C payload/RUNTIMES/LLAMA/LINUX_ARM64_CPU
+          find payload -type f -print0 | sort -z | xargs -0 sha256sum > payload/SHA256SUMS.txt
+          du -sh payload
+          echo EDUALC_PAYLOAD_FETCH_VERIFY_PASS
+      - name: Upload verified offline payload
+        uses: actions/upload-artifact@v4
+        with:
+          name: trinity-edualc-minimum-offline-payload
+          path: payload
+          compression-level: 0
+          retention-days: 7
