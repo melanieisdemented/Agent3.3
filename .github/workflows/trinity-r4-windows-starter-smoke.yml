@@ -1,0 +1,50 @@
+name: TRINITY R4 Windows production starter smoke
+
+on:
+  push:
+    branches: [trinity-r4-ci-20260901]
+    paths:
+      - '.github/workflows/trinity-r4-windows-starter-smoke.yml'
+      - 'ci_r4_src/CORE/start_local_edualc_windows.ps1'
+      - 'ci_r4_src/CORE/stop_local_edualc_windows.ps1'
+      - 'ci_r4_src/CORE/verify_local_edualc.py'
+  workflow_dispatch:
+
+jobs:
+  starter:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare exact production starter plus payload
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $root=Join-Path $env:RUNNER_TEMP 'r4starter';New-Item -ItemType Directory -Force $root|Out-Null
+          New-Item -ItemType Directory -Force (Join-Path $root 'CORE'),(Join-Path $root 'EDUALC\MODELS\LOW'),(Join-Path $root 'EDUALC\RUNTIMES\LLAMA\WINDOWS_X64_CPU')|Out-Null
+          Copy-Item -Force "$env:GITHUB_WORKSPACE\ci_r4_src\CORE\start_local_edualc_windows.ps1" (Join-Path $root 'CORE')
+          Copy-Item -Force "$env:GITHUB_WORKSPACE\ci_r4_src\CORE\stop_local_edualc_windows.ps1" (Join-Path $root 'CORE')
+          Copy-Item -Force "$env:GITHUB_WORKSPACE\ci_r4_src\CORE\verify_local_edualc.py" (Join-Path $root 'CORE')
+          $model=Join-Path $root 'EDUALC\MODELS\LOW\Qwen3.5-0.8B-Q4_0.gguf'
+          & curl.exe -fL --retry 4 --retry-delay 2 -o $model 'https://huggingface.co/ggml-org/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_0.gguf?download=true'
+          if($LASTEXITCODE -ne 0){throw 'model download failed'}
+          $sha=[Security.Cryptography.SHA256]::Create();$s=[IO.File]::OpenRead($model);try{$h=$sha.ComputeHash($s)}finally{$s.Dispose();$sha.Dispose()};$mh=([BitConverter]::ToString($h)).Replace('-','').ToLowerInvariant();if($mh -ne '57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf'){throw "model hash $mh"}
+          $zip=Join-Path $env:RUNNER_TEMP 'llama-win.zip';& curl.exe -fL --retry 4 --retry-delay 2 -o $zip 'https://github.com/ggml-org/llama.cpp/releases/download/b10621/llama-b10621-bin-win-cpu-x64.zip';if($LASTEXITCODE -ne 0){throw 'runtime download failed'}
+          $sha=[Security.Cryptography.SHA256]::Create();$s=[IO.File]::OpenRead($zip);try{$h=$sha.ComputeHash($s)}finally{$s.Dispose();$sha.Dispose()};$zh=([BitConverter]::ToString($h)).Replace('-','').ToLowerInvariant();if($zh -ne '0e8b65e650e369f70f8307d890508886f171ef4fb00facccddd4a1b7ffdaca51'){throw "runtime hash $zh"}
+          Expand-Archive -Force $zip (Join-Path $root 'EDUALC\RUNTIMES\LLAMA\WINDOWS_X64_CPU')
+          "STARTER_ROOT=$root"|Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host 'STARTER_PAYLOAD_PASS'
+      - name: Exact production starter plus inference same step
+        timeout-minutes: 5
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $env:STARTER_ROOT 'CORE\start_local_edualc_windows.ps1') -Root $env:STARTER_ROOT
+          if($LASTEXITCODE -ne 0){throw "starter exit $LASTEXITCODE"}
+          $r=Get-Content -Raw (Join-Path $env:STARTER_ROOT 'STATE\edualc\runtime.json')|ConvertFrom-Json
+          if(!$r.owned_process -or $r.reused_existing){throw 'starter did not own process'}
+          python (Join-Path $env:STARTER_ROOT 'CORE\verify_local_edualc.py') --root $env:STARTER_ROOT
+          if($LASTEXITCODE -ne 0){throw "inference exit $LASTEXITCODE"}
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $env:STARTER_ROOT 'CORE\stop_local_edualc_windows.ps1') -Root $env:STARTER_ROOT
+          Write-Host "WINDOWS_PRODUCTION_STARTER_PASS pid=$($r.pid)"
