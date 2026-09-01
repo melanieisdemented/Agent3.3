@@ -1,0 +1,34 @@
+TRINITY THREAD CONTINUITY RULE
+Version: 2026-09-01
+
+MANDATORY OPERATIONAL RULE FOR TRINITY SESSIONS
+
+Before a TRINITY conversation approaches context/token exhaustion:
+
+1. Give the user an explicit heads-up BEFORE continuity becomes unreliable.
+2. Create or update a plain-text TRINITY continuity handoff.
+3. The handoff must include:
+   - exact current project status
+   - what is VERIFIED LIVE vs VERIFIED PACKAGE vs HISTORICAL vs INFERENCE vs UNKNOWN
+   - current repository / branch / commit
+   - test/run IDs and conclusions
+   - blockers and unfinished items
+   - exact next action
+   - artifact filenames, hashes, and persistent locations
+   - any dangerous assumptions that must not be carried forward
+4. Save the handoff into the persistent ChatGPT Library.
+5. On a new TRINITY thread, retrieve the newest continuity handoff before asking the user to repeat prior diagnostics or project history.
+6. Never claim that ordinary chat context is permanent memory.
+7. Never guess A/B/C/Pi identity or liveness.
+8. Never call a TRINITY node healthy/complete/synchronized without current machine evidence.
+
+Canonical user command:
+START TRINITY
+
+Expected start acknowledgement:
+TRINITY STARTING.
+
+Then retrieve continuity evidence.
+
+Platform limitation:
+This file cannot modify ChatGPT's global system prompt from inside a chat, and no exact token-threshold interrupt can be guaranteed across every future thread. Persistence is therefore implemented as an explicit Library/project continuity record that future TRINITY sessions must retrieve.
