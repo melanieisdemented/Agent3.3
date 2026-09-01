@@ -20,10 +20,13 @@ $model=Join-Path $Root 'EDUALC\MODELS\LOW\Qwen3.5-0.8B-Q4_0.gguf';if(!(Test-Path
 $actual=Get-Sha256 $model;if($actual -ne $ModelSha){throw "Bundled EDUALC model SHA-256 mismatch: $actual"}
 $arch=[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString();$family=if($arch -match 'Arm64'){'WINDOWS_ARM64_CPU'}else{'WINDOWS_X64_CPU'}
 $dir=Join-Path $Root "EDUALC\RUNTIMES\LLAMA\$family";$server=Get-ChildItem $dir -Filter llama-server.exe -File -Recurse -ErrorAction SilentlyContinue|Select-Object -First 1;if(!$server){throw "Bundled runtime missing: $family/llama-server.exe"}
-$log=Join-Path $State 'llama-server.log';$err=Join-Path $State 'llama-server.err.log'
-$args=@('-m',$model,'--alias','captain','--host','127.0.0.1','--port',[string]$Port,'--ctx-size','4096','--jinja','--reasoning','off','-ngl','0')
-$proc=Start-Process -FilePath $server.FullName -ArgumentList $args -WorkingDirectory $server.DirectoryName -WindowStyle Hidden -RedirectStandardOutput $log -RedirectStandardError $err -PassThru
-$healthy=$false;for($i=0;$i -lt 360;$i++){Start-Sleep -Milliseconds 500;if(Test-Health $Port){$healthy=$true;break};if($proc.HasExited){throw "llama-server exited early: $($proc.ExitCode); see $err"}}
-if(!$healthy){try{Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue}catch{};throw "Local EDUALC health timeout; see $err"}
+$log=Join-Path $State 'llama-server.log'
+$args=@('-m',$model,'--alias','captain','--host','127.0.0.1','--port',[string]$Port,'--ctx-size','4096','--jinja','--reasoning','off','-ngl','0','--log-file',$log)
+# Do not use PowerShell stdout/stderr redirection for this long-lived process.
+# On Windows it can keep the invoking installer pipe open after the server is healthy.
+# llama.cpp writes its own log via --log-file instead.
+$proc=Start-Process -FilePath $server.FullName -ArgumentList $args -WorkingDirectory $server.DirectoryName -WindowStyle Hidden -PassThru
+$healthy=$false;for($i=0;$i -lt 360;$i++){Start-Sleep -Milliseconds 500;if(Test-Health $Port){$healthy=$true;break};if($proc.HasExited){throw "llama-server exited early: $($proc.ExitCode); see $log"}}
+if(!$healthy){try{Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue}catch{};throw "Local EDUALC health timeout; see $log"}
 @{schema='trinity.edualc.runtime.v1';status='HEALTHY';port=$Port;endpoint="http://127.0.0.1:$Port/v1";model=$model;model_sha256=$actual;runtime_family=$family;server=$server.FullName;pid=$proc.Id;reused_existing=$false;owned_process=$true;reasoning_mode='off';ctx_size=4096;started_at=(Get-Date).ToUniversalTime().ToString('o')}|ConvertTo-Json -Depth 6|Set-Content -Encoding UTF8 $Runtime
 Write-Host "EDUALC_LOCAL_STARTED port=$Port pid=$($proc.Id) runtime=$family"
