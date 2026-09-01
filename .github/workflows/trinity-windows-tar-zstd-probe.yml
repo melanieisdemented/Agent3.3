@@ -1,0 +1,23 @@
+name: TRINITY Windows tar zstd probe
+on:
+  push:
+    branches: [trinity-r4-ci-20260901]
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: windows-2025
+    timeout-minutes: 5
+    steps:
+      - name: Prove built-in tar can extract zstd
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $b64='KLUv/WQAJ3UEALLGFxtwaR1A9BLrowzapjY/pLYHV64lsiJi/f53rzKAtY4CWwoBGQgUhiTrwAxHoidfbXru/kYMLIgHF4hxmVhgUzTMtZfxPZjnwBYbRvpJTmlXs9m/35t9c12tu2JVTcS4EQCZI8cDC9AGBlQDOjxAbNAXCwEJCKzbJwHlgfAHIDV4AJbAAliwspqe'
+          $archive=Join-Path $env:RUNNER_TEMP 'probe.tar.zst'
+          [IO.File]::WriteAllBytes($archive,[Convert]::FromBase64String($b64))
+          $out=Join-Path $env:RUNNER_TEMP 'out'; New-Item -ItemType Directory -Force $out|Out-Null
+          & tar.exe -xf $archive -C $out
+          if($LASTEXITCODE -ne 0){throw "tar extraction failed $LASTEXITCODE"}
+          $v=(Get-Content -Raw (Join-Path $out 'in\probe.txt')).Trim()
+          if($v -ne 'TAR_ZSTD_WINDOWS_PASS'){throw "unexpected probe $v"}
+          Write-Host 'WINDOWS_BUILTIN_TAR_ZSTD_PASS'
