@@ -1,0 +1,30 @@
+name: TRINITY R4 generic x64 runtime proof
+on:
+  push:
+    branches: [trinity-r4-ci-20260901]
+  workflow_dispatch:
+jobs:
+  generic-x64:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - name: Prove generic x64 runtime with real model
+        shell: powershell
+        run: |
+          $ErrorActionPreference='Stop'
+          $w=Join-Path $env:RUNNER_TEMP 'genericx64'; New-Item -ItemType Directory -Force $w|Out-Null
+          $zip=Join-Path $w 'llama.zip'; $rt=Join-Path $w 'rt'; $model=Join-Path $w 'model.gguf'
+          & curl.exe -fL --retry 4 --retry-delay 2 -o $zip 'https://github.com/ggml-org/llama.cpp/releases/download/b10621/llama-b10621-bin-win-cpu-x64.zip'; if($LASTEXITCODE){throw 'runtime download failed'}
+          Expand-Archive -Force $zip $rt
+          Get-ChildItem $rt -Filter 'ggml-cpu-*.dll' -File | Where-Object Name -ne 'ggml-cpu-x64.dll' | Remove-Item -Force
+          Get-ChildItem $rt -File | Where-Object { $_.Name -match '^llama-(cli|bench|batched-bench|completion|fit-params|perplexity|quantize)-impl\.dll$' -or ($_.Extension -eq '.exe' -and $_.Name -ne 'llama-server.exe') } | Remove-Item -Force
+          & curl.exe -fL --retry 4 --retry-delay 2 -o $model 'https://huggingface.co/ggml-org/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_0.gguf?download=true'; if($LASTEXITCODE){throw 'model download failed'}
+          $p=Start-Process -FilePath (Join-Path $rt 'llama-server.exe') -ArgumentList @('-m',$model,'--alias','captain','--host','127.0.0.1','--port','8090','--ctx-size','4096','--jinja','-ngl','0','--reasoning','off','--log-file',(Join-Path $w 'server.log')) -PassThru
+          $ok=$false; for($i=0;$i -lt 240;$i++){Start-Sleep -Milliseconds 500; try{$h=Invoke-RestMethod 'http://127.0.0.1:8090/health' -TimeoutSec 2;if($h.status -eq 'ok'){$ok=$true;break}}catch{}; if($p.HasExited){break}}
+          if(!$ok){Get-Content (Join-Path $w 'server.log') -ErrorAction SilentlyContinue; throw 'generic x64 server failed health'}
+          $body=@{model='captain';messages=@(@{role='user';content='Reply exactly EDUALC_GENERIC_X64_PASS'});temperature=0;max_tokens=32}|ConvertTo-Json -Depth 6
+          $r=Invoke-RestMethod 'http://127.0.0.1:8090/v1/chat/completions' -Method Post -ContentType 'application/json' -Body $body -TimeoutSec 120
+          $content=$r.choices[0].message.content
+          if($content -notmatch 'EDUALC_GENERIC_X64_PASS'){throw "unexpected inference: $content"}
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+          Write-Host 'GENERIC_X64_REAL_INFERENCE_PASS'
