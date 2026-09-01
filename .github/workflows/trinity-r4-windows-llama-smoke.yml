@@ -36,15 +36,14 @@ jobs:
           "EDUALC_SERVER=$($server.FullName)"|Out-File $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "DIRECT_PAYLOAD_PASS model=$mh runtime=$zh server=$($server.FullName)"
 
-      - name: Direct llama-server health
-        timeout-minutes: 4
+      - name: Direct health and real inference in same process scope
+        timeout-minutes: 5
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
           $log=Join-Path $env:EDUALC_ROOT 'stdout.log';$err=Join-Path $env:EDUALC_ROOT 'stderr.log'
           $args=@('-m',$env:EDUALC_MODEL,'--alias','captain','--host','127.0.0.1','--port','18090','--ctx-size','4096','--jinja','--reasoning','off','-ngl','0')
           $p=Start-Process -FilePath $env:EDUALC_SERVER -ArgumentList $args -WorkingDirectory (Split-Path $env:EDUALC_SERVER -Parent) -RedirectStandardOutput $log -RedirectStandardError $err -PassThru
-          "EDUALC_PID=$($p.Id)"|Out-File $env:GITHUB_ENV -Append -Encoding utf8
           $ok=$false
           for($i=0;$i -lt 240;$i++){
             Start-Sleep -Milliseconds 500
@@ -53,15 +52,9 @@ jobs:
           }
           if(!$ok){Get-Content $err -ErrorAction SilentlyContinue|Out-Host;throw 'health timeout'}
           Write-Host "DIRECT_HEALTH_PASS pid=$($p.Id)"
-
-      - name: Direct real inference
-        timeout-minutes: 4
-        shell: pwsh
-        run: |
-          $ErrorActionPreference='Stop'
           $body=@{model='captain';messages=@(@{role='user';content='Reply with exactly EDUALC_WINDOWS_DIRECT_PASS and nothing else.'});temperature=0;max_tokens=32}|ConvertTo-Json -Depth 6
           $r=Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:18090/v1/chat/completions' -ContentType 'application/json' -Body $body -TimeoutSec 180
           $content=[string]$r.choices[0].message.content
           if($content.Trim() -ne 'EDUALC_WINDOWS_DIRECT_PASS'){throw "unexpected content: $content"}
           Write-Host 'EDUALC_WINDOWS_DIRECT_PASS'
-          Stop-Process -Id ([int]$env:EDUALC_PID) -Force -ErrorAction SilentlyContinue
+          Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
