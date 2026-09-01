@@ -3,6 +3,12 @@ $ErrorActionPreference='Stop'
 $ModelSha='57d1997790d1744fba5b40a7317df71ea5e2acee28c47e78f0cce39c0703f8cf'
 $State=Join-Path $Root 'STATE\edualc';New-Item -ItemType Directory -Force $State|Out-Null
 $Runtime=Join-Path $State 'runtime.json'
+function Get-Sha256([string]$Path){
+  $sha=[System.Security.Cryptography.SHA256]::Create()
+  $stream=[System.IO.File]::OpenRead($Path)
+  try{$hash=$sha.ComputeHash($stream)}finally{$stream.Dispose();$sha.Dispose()}
+  return ([System.BitConverter]::ToString($hash)).Replace('-','').ToLowerInvariant()
+}
 function Test-Health([int]$P){try{$r=Invoke-WebRequest -UseBasicParsing -Uri "http://127.0.0.1:$P/health" -TimeoutSec 2;return ($r.StatusCode -ge 200 -and $r.StatusCode -lt 300)}catch{return $false}}
 function Port-Free([int]$P){$used=[System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners().Port;return -not ($used -contains $P)}
 if(Test-Path $Runtime){
@@ -11,7 +17,7 @@ if(Test-Path $Runtime){
 if(Test-Health $Port){@{schema='trinity.edualc.runtime.v1';status='HEALTHY';port=$Port;endpoint="http://127.0.0.1:$Port/v1";reused_existing=$true;owned_process=$false;pid=$null;observed_at=(Get-Date).ToUniversalTime().ToString('o')}|ConvertTo-Json -Depth 5|Set-Content -Encoding UTF8 $Runtime;Write-Host "EDUALC_LOCAL_REUSED port=$Port";exit 0}
 if(!(Port-Free $Port)){foreach($p in 18080..18149){if(Port-Free $p){$Port=$p;break}};if(!(Port-Free $Port)){throw 'No free EDUALC port in 18080-18149'}}
 $model=Join-Path $Root 'EDUALC\MODELS\LOW\Qwen3.5-0.8B-Q4_0.gguf';if(!(Test-Path $model)){throw 'Bundled EDUALC model missing'}
-$actual=(Get-FileHash -Algorithm SHA256 $model).Hash.ToLowerInvariant();if($actual -ne $ModelSha){throw "Bundled EDUALC model SHA-256 mismatch: $actual"}
+$actual=Get-Sha256 $model;if($actual -ne $ModelSha){throw "Bundled EDUALC model SHA-256 mismatch: $actual"}
 $arch=[System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString();$family=if($arch -match 'Arm64'){'WINDOWS_ARM64_CPU'}else{'WINDOWS_X64_CPU'}
 $dir=Join-Path $Root "EDUALC\RUNTIMES\LLAMA\$family";$server=Get-ChildItem $dir -Filter llama-server.exe -File -Recurse -ErrorAction SilentlyContinue|Select-Object -First 1;if(!$server){throw "Bundled runtime missing: $family/llama-server.exe"}
 $log=Join-Path $State 'llama-server.log';$err=Join-Path $State 'llama-server.err.log'
